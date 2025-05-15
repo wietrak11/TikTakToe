@@ -1,5 +1,5 @@
 package com.example.tiktaktoe.domain.enums
 
 enum class Player {
-    X, Y
+    X, O
 }

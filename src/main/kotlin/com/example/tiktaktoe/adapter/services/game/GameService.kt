@@ -9,6 +9,7 @@ import com.example.tiktaktoe.infrastructure.NoCurrentGameFoundException
 import com.example.tiktaktoe.infrastructure.NotEmptyFieldException
 import com.example.tiktaktoe.infrastructure.WrongPlayerException
 import com.google.gson.Gson
+import jakarta.transaction.Transactional
 import org.springframework.stereotype.Service
 
 @Service
@@ -17,26 +18,28 @@ class GameService(
     private val gson: Gson
 ) {
 
-    fun getCurrentGame(): Game =
-        gameRepository.findFirstBy()?.toDomain()
-            ?: throw NoCurrentGameFoundException("There is no game currently in progress")
-
-    fun getReadableStatusFromJson(gameStatus: String): String =
-        formatTicTacToeBoard(gson.fromJson(gameStatus, Array<Array<String>>::class.java))
+    fun getReadableStatusFromJson(): String {
+        val currentGame = getCurrentGame()
+        return formatTicTacToeBoard(
+            gson.fromJson(currentGame.gameStatus, Array<Array<String>>::class.java),
+            currentGame.playerTurn
+        )
+    }
 
     fun startGame(moveRequest: MoveRequest): String {
         gameRepository.deleteAll()
         val gameArray = Array(3) { Array(3) { "" } }
-        gameArray[moveRequest.y - 1][moveRequest.x - 1] = moveRequest.player.toString()
+        gameArray[moveRequest.row - 1][moveRequest.column - 1] = moveRequest.player.toString()
 
+        val playerTurn = getNextPlayer(moveRequest.player)
         gameRepository.save(
             PersistentGame(
-                playerTurn = getNextPlayer(moveRequest.player),
+                playerTurn = playerTurn.toString(),
                 gameStatus = gson.toJson(gameArray)
             )
         )
 
-        return formatTicTacToeBoard(gameArray)
+        return formatTicTacToeBoard(gameArray, playerTurn)
     }
 
     fun move(moveRequest: MoveRequest): String {
@@ -48,11 +51,11 @@ class GameService(
 
         val gameArray = gson.fromJson(game.gameStatus, Array<Array<String>>::class.java)
 
-        if (gameArray[moveRequest.y - 1][moveRequest.x - 1] != "") {
-            throw NotEmptyFieldException("Field [${moveRequest.x}][${moveRequest.y}] is not empty. Try again")
+        if (gameArray[moveRequest.row - 1][moveRequest.column - 1] != "") {
+            throw NotEmptyFieldException("Field [${moveRequest.column}][${moveRequest.row}] is not empty. Try again")
         }
 
-        gameArray[moveRequest.y - 1][moveRequest.x - 1] = moveRequest.player.toString()
+        gameArray[moveRequest.row - 1][moveRequest.column - 1] = moveRequest.player.toString()
         if (checkWin(gameArray, moveRequest.player.toString())) {
             gameRepository.deleteAll()
             return gameArray.contentDeepToString() + "\n" + "Player ${moveRequest.player} wins"
@@ -63,14 +66,19 @@ class GameService(
             return "Its draw"
         }
 
+        val playerTurn = getNextPlayer(moveRequest.player)
         gameRepository.save(
             game.copy(
-                playerTurn = getNextPlayer(moveRequest.player),
+                playerTurn = playerTurn.toString(),
                 gameStatus = gson.toJson(gameArray)
             )
         )
-        return formatTicTacToeBoard(gameArray)
+        return formatTicTacToeBoard(gameArray, playerTurn)
     }
+
+    private fun getCurrentGame(): Game =
+        gameRepository.findFirstBy()?.toDomain()
+            ?: throw NoCurrentGameFoundException("There is no game currently in progress")
 
     private fun checkWin(gameArray: Array<Array<String>>, player: String): Boolean {
         val size = gameArray.size
@@ -95,14 +103,14 @@ class GameService(
         return true
     }
 
-    private fun getNextPlayer(player: Player): String =
+    private fun getNextPlayer(player: Player): Player =
         if (player == Player.X) {
-            Player.Y.toString()
+            Player.O
         } else {
-            Player.X.toString()
+            Player.X
         }
 
-    private fun formatTicTacToeBoard(gameArray: Array<Array<String>>): String {
+    private fun formatTicTacToeBoard(gameArray: Array<Array<String>>, playerTurn: Player): String {
         val builder = StringBuilder()
         for (i in gameArray.indices) {
             for (j in gameArray[i].indices) {
@@ -118,6 +126,8 @@ class GameService(
                 builder.append("---+---+---\n")
             }
         }
+        builder.append("\n")
+        builder.append("Turn for player $playerTurn")
         return builder.toString()
     }
 }
