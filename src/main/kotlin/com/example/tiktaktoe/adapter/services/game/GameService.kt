@@ -58,7 +58,7 @@ class GameService(
         gameArray[moveRequest.row - 1][moveRequest.column - 1] = moveRequest.player.toString()
         if (checkWin(gameArray, moveRequest.player.toString())) {
             gameRepository.deleteAll()
-            return gameArray.contentDeepToString() + "\n" + "Player ${moveRequest.player} wins"
+            return "Player ${moveRequest.player} wins"
         }
 
         if (checkDraw(gameArray)) {
