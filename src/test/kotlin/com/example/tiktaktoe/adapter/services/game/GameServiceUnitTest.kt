@@ -53,7 +53,7 @@ class GameServiceUnitTest {
     fun `move should return draw message when no more moves are possible`() {
         //given
         val gameArray = arrayOf(
-            arrayOf("X", "X", "O"), // ← Player X plays at (1,3) to win
+            arrayOf("X", "X", "O"),
             arrayOf("O", "O", "X"),
             arrayOf("X", "O", "")
         )
